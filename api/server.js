@@ -10,9 +10,28 @@ const authRouter = require("../auth/router");
 
 const server = express();
 
-const sessionConfiguration = {};
+const dbConnection = require("../database/connection");
 
-server.use(session(sessionConfiguration));
+const sessionConfiguration = {
+  name: "monster", // default value is sid
+  secret: process.env.SESSION_SECRET || "keep it secret, keep it safe", //key for encryption
+  cookie: {
+    maxAge: 1000 * 60 * 10,
+    secure: process.env.USE_SECURE_COOKIES || false,
+    httpOnly: true, //prevent JS code on client from accessing this cookie
+  },
+  resave: false,
+  saveUnitialized: true, // read docs, it's related to GDPR compliance
+  store: new KnexSessionStore({
+    knex: dbConnection,
+    tablename: "sessions",
+    sidfieldname: "sid",
+    createTable: true,
+    clearInterval: 1000 * 60 * 30, // time to check and remove expired sessions from database
+  }),
+};
+
+server.use(session(sessionConfiguration)); // enables session support
 
 server.use(helmet());
 server.use(express.json());

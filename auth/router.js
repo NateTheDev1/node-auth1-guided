@@ -1,15 +1,11 @@
+const bcryptjs = require("bcryptjs"); // << add this line
 const router = require("express").Router();
-const Users = require("../users/users-model");
-const bcrypt = require("bcryptjs");
+const Users = require("../users/users-model.js"); // update path
 
 router.post("/register", (req, res) => {
-  console.log(req.body);
-  if (req.body.username === undefined || req.body.password === undefined) {
-    res.status(500).json({ error: "No credentials" });
-  }
   let creds = req.body;
   const rounds = process.env.HASH_ROUNDS || 4;
-  const hash = bcrypt.hashSync(creds.password, rounds);
+  const hash = bcryptjs.hashSync(creds.password, rounds);
   creds.password = hash;
   Users.add(creds)
     .then((saved) => {
@@ -17,27 +13,30 @@ router.post("/register", (req, res) => {
     })
     .catch((error) => {
       res.status(500).json({ error: error.message });
+      ``;
     });
 });
-
 router.post("/login", (req, res) => {
   const { username, password } = req.body;
-
   Users.findBy({ username })
     .then((users) => {
-      if (users[0] && bcrypt.compareSync(password, users[0].password)) {
+      const user = users[0];
+      if (user && bcryptjs.compareSync(password, user.password)) {
         // store the session to the database
-        // produce a cookie
+        // produce a cookie and store the session id inside the cookie
         // send back the cookie with the session id to the client
-
-        res.status(200).json({ message: "welcome!" });
+        req.session.loggedIn = true;
+        req.session.username = user.username;
+        res.status(200).json({ message: "welcome!", session: req.session });
       } else {
-        res.status(401).json({ error: "INVALID CREDENTIALS" });
+        res.status(401).json({ message: "Invalid credentials" });
       }
     })
-    .catch((err) => {
-      res.status(500).json({ error: err.message });
+    .catch((error) => {
+      res.status(500).json({ error: error.message });
     });
 });
-
+router.get("/logout", (req, res) => {
+  res.status(204).end();
+});
 module.exports = router;
